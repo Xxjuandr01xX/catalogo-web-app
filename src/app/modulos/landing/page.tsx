@@ -1,6 +1,7 @@
 import React from 'react';
 import CardCatalogo from '@/app/components/CardCatalogo';
 
+
 const Page = () => {
     return (
         <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900">
@@ -69,11 +70,10 @@ const Page = () => {
                     {['Todos', 'Repuestos', 'Accesorios', 'Herramientas', 'Lubricantes'].map((cat, i) => (
                         <button
                             key={cat}
-                            className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 shadow-sm ${
-                                i === 0
+                            className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 shadow-sm ${i === 0
                                     ? 'bg-blue-600 text-white shadow-blue-500/30'
                                     : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
-                            }`}
+                                }`}
                         >
                             {cat}
                         </button>
