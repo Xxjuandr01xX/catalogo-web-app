@@ -74,14 +74,22 @@ const getSheet = (connection: GSSConnection, sheetname: string): GoogleSpreadshe
  */
 export const gssc_get_all = async (connection: GSSConnection, sheetname: string): Promise<SheetRecord[]> => {
     const sheet = getSheet(connection, sheetname);
-    const rows = await sheet.getRows();
-    return rows.map((row) => {
-        const record: SheetRecord = { _rowNumber: row.rowNumber };
-        for (const header of sheet.headerValues) {
-            record[header] = row.get(header) ?? "";
+    try {
+        const rows = await sheet.getRows();
+        return rows.map((row) => {
+            const record: SheetRecord = { _rowNumber: row.rowNumber };
+            for (const header of sheet.headerValues) {
+                record[header] = row.get(header) ?? "";
+            }
+            return record;
+        });
+    } catch (error: unknown) {
+        if (error instanceof Error && error.message && error.message.includes("No values in the header row")) {
+            console.warn(`[Aviso] La hoja "${sheetname}" está vacía o no tiene encabezados en la primera fila.`);
+            return [];
         }
-        return record;
-    });
+        throw error;
+    }
 };
 
 /**

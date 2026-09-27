@@ -1,154 +1,186 @@
-import React from 'react';
+"use client"
+import React, { useState, useEffect } from 'react';
 import CardCatalogo from '@/app/components/CardCatalogo';
+import CartModalContent from '@/app/components/CartModalContent';
+import Modal from '@/app/components/ui/Modal';
+import PayPage from '@/app/components/PayPage';
 
+// Nuevos componentes de UI
+import Header from '@/app/components/landing/Header';
+import HeroSection from '@/app/components/landing/HeroSection';
+import Footer from '@/app/components/landing/Footer';
 
-const Page = () => {
+// Servicios y Contextos
+import { get_all_productos } from '../../services/ProductosServices';
+import { get_all_category } from '@/app/services/CategoryService';
+import type { Productos } from '@/app/types/productos.type';
+import type { category } from '@/app/types/category.type';
+import { CartContextProvider, useCart } from '@/app/context/CartContext';
+import { ConfigProvider, useConfig } from '@/app/context/ConfigContext';
+
+const PageContent = () => {
+    const [originalProductos, setOriginalProductos] = useState<Productos[]>([]);
+    const [productosList, SetProductosList] = useState<Productos[]>([]);
+    const [categoryList, SetCategoryList] = useState<category[]>([]);
+    const [inputFilter, SetInputFilter] = useState<string>('');
+    const [activeCategory, setActiveCategory] = useState<string | null>(null);
+    const [fase, setFase] = useState<string>('select')
+
+    const [isCartModalOpen, setIsCartModalOpen] = useState(false);
+    const { totalItems } = useCart();
+    const { config, isLoading: isConfigLoading } = useConfig();
+
+    const filterProducts = (categoriname: string | null) => {
+        setActiveCategory(categoriname);
+    }
+
+    useEffect(() => {
+        let filtered = originalProductos;
+
+        if (activeCategory) {
+            filtered = filtered.filter((p) => p.category === activeCategory);
+        }
+
+        const query = inputFilter.trim().toLowerCase();
+        if (query.length > 0) {
+            filtered = filtered.filter((p) =>
+                p.name.toLowerCase().includes(query) ||
+                p.descripcion.toLowerCase().includes(query) ||
+                p.category.toLowerCase().includes(query)
+            );
+        }
+
+        SetProductosList(filtered);
+    }, [inputFilter, activeCategory, originalProductos]);
+
+    useEffect(() => {
+        const request_productos = async () => {
+            const data = await get_all_productos();
+            setOriginalProductos(data);
+        }
+
+        const request_categorias = async () => {
+            const data = await get_all_category();
+            SetCategoryList(data);
+        }
+
+        request_productos();
+        request_categorias();
+    }, [])
+
+    if (isConfigLoading) {
+        return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200">Cargando tienda...</div>;
+    }
+
     return (
         <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900">
-            {/* Header con gradiente y glassmorphism */}
-            <header className="sticky top-0 z-50 w-full bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/20">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-16">
-                        {/* Logo */}
-                        <div className="flex items-center gap-2">
-                            <div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
-                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                </svg>
-                            </div>
-                            <span className="text-xl font-bold tracking-tight">
-                                Catálogo
+            {/* Header Component */}
+            <Header 
+                inputFilter={inputFilter}
+                setInputFilter={SetInputFilter}
+                totalItems={totalItems}
+                onCartClick={() => setIsCartModalOpen(true)}
+            />
+
+            {/* Hero Section Component */}
+            {fase === 'select' && (
+                <HeroSection 
+                    title={
+                        <>
+                            {config?.hero_title.split(' ').slice(0, -2).join(' ')} <span className="block text-blue-200" style={{ color: config?.primary_color }}>{config?.hero_title.split(' ').slice(-2).join(' ')}</span>
+                        </>
+                    }
+                    subtitle={config?.hero_subtitle || "Explora nuestro catálogo con los mejores precios"}
+                    images={[
+                        config?.hero_image_1 || "https://images.unsplash.com/photo-1486262715619-670810a07153?q=80&w=800&auto=format&fit=crop",
+                        config?.hero_image_2 || "https://images.unsplash.com/photo-1620023594191-443b782987eb?q=80&w=800&auto=format&fit=crop",
+                        config?.hero_image_3 || "https://images.unsplash.com/photo-1542282088-fe8426682b8f?q=80&w=800&auto=format&fit=crop"
+                    ].filter(Boolean)}
+                />
+            )}
+
+            {fase === 'select' ? (
+                <>
+                    {/* Category filter chips */}
+                    <div className="relative z-20 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 -mt-6">
+                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                            <button
+                                onClick={() => filterProducts(null)}
+                                style={activeCategory === null ? { backgroundColor: config?.primary_color, color: 'white' } : {}}
+                                className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 shadow-sm ${activeCategory === null
+                                    ? 'shadow-blue-500/30'
+                                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+                                    }`}
+                            >
+                                Todos
+                            </button>
+                            {categoryList.map((cat) => (
+                                <button
+                                    key={cat.id}
+                                    onClick={(e) => { e.preventDefault(); filterProducts(cat.name) }}
+                                    style={activeCategory === cat.name ? { backgroundColor: config?.primary_color, color: 'white' } : {}}
+                                    className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 shadow-sm ${activeCategory === cat.name
+                                        ? 'shadow-blue-500/30'
+                                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+                                        }`}
+                                >
+                                    {cat.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Productos grid */}
+                    <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                Productos destacados
+                            </h2>
+                            <span className="text-sm text-slate-500 dark:text-slate-400">
+                                {productosList.length} productos
                             </span>
                         </div>
 
-                        {/* Search bar */}
-                        <div className="hidden md:flex flex-1 max-w-md mx-8">
-                            <div className="relative w-full">
-                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                                <input
-                                    type="text"
-                                    placeholder="Buscar productos..."
-                                    className="w-full pl-10 pr-4 py-2 bg-white/15 backdrop-blur-sm border border-white/20 rounded-xl text-sm text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 focus:bg-white/20 transition-all"
-                                />
-                            </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                            {productosList.length === 0 ? (
+                                <p className="text-slate-500 dark:text-slate-400 col-span-full text-center py-8">No hay productos disponibles.</p>
+                            ) : (
+                                productosList.map((producto) => (
+                                    <CardCatalogo
+                                        key={producto.id}
+                                        producto={producto}
+                                    />
+                                ))
+                            )}
                         </div>
+                    </main>
+                </>
+            ) : <PayPage />}
 
-                        {/* Nav actions */}
-                        <div className="flex items-center gap-3">
-                            <button className="relative p-2 hover:bg-white/10 rounded-xl transition-colors">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
-                                </svg>
-                                {/* Badge del carrito */}
-                                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                                    4
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </header>
+            {/* Footer Component */}
+            <Footer />
 
-            {/* Hero section */}
-            <section className="w-full bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white py-12 px-4">
-                <div className="max-w-7xl mx-auto text-center">
-                    <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-3">
-                        Encuentra los mejores
-                        <span className="block text-blue-200">repuestos y accesorios</span>
-                    </h1>
-                    <p className="text-blue-200/80 text-lg max-w-2xl mx-auto">
-                        Explora nuestro catálogo con los mejores precios del mercado
-                    </p>
-                </div>
-            </section>
-
-            {/* Category filter chips */}
-            <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 -mt-5">
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                    {['Todos', 'Repuestos', 'Accesorios', 'Herramientas', 'Lubricantes'].map((cat, i) => (
-                        <button
-                            key={cat}
-                            className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 shadow-sm ${i === 0
-                                    ? 'bg-blue-600 text-white shadow-blue-500/30'
-                                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
-                                }`}
-                        >
-                            {cat}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Productos grid */}
-            <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                        Productos destacados
-                    </h2>
-                    <span className="text-sm text-slate-500 dark:text-slate-400">
-                        4 productos
-                    </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                    <CardCatalogo
-                        titulo="Tripa para Caucho"
-                        categoria="Repuestos"
-                        price="1.50$"
-                        imageUrl="https://picsum.photos/id/237/400/300"
-                    />
-
-                    <CardCatalogo
-                        titulo="Tripa para Caucho"
-                        categoria="Repuestos"
-                        price="1.50$"
-                        imageUrl="https://picsum.photos/id/238/400/300"
-                    />
-
-                    <CardCatalogo
-                        titulo="Tripa para Caucho"
-                        categoria="Repuestos"
-                        price="1.50$"
-                        imageUrl="https://picsum.photos/id/239/400/300"
-                    />
-
-                    <CardCatalogo
-                        titulo="Tripa para Caucho"
-                        categoria="Repuestos"
-                        price="1.50$"
-                        imageUrl="https://picsum.photos/id/240/400/300"
-                    />
-                </div>
-            </main>
-
-            {/* Footer mejorado */}
-            <footer className="w-full bg-slate-900 text-slate-400 border-t border-slate-800">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                </svg>
-                            </div>
-                            <span className="text-white font-semibold">Catálogo</span>
-                        </div>
-
-                        <p className="text-sm">
-                            Desarrollado con 💙 por <span className="text-white font-medium">Devjuand</span> © 2026
-                        </p>
-
-                        <div className="flex items-center gap-4">
-                            <a href="#" className="hover:text-white transition-colors text-sm">Términos</a>
-                            <a href="#" className="hover:text-white transition-colors text-sm">Privacidad</a>
-                            <a href="#" className="hover:text-white transition-colors text-sm">Contacto</a>
-                        </div>
-                    </div>
-                </div>
-            </footer>
+            {/* Modal del carrito */}
+            <Modal
+                title="Tu Carrito"
+                id="ModalCarrito"
+                isOpen={isCartModalOpen}
+                onClose={() => setIsCartModalOpen(false)}
+                maxWidth="max-w-lg"
+            >
+                <CartModalContent fase={setFase} />
+            </Modal>
         </div>
+    );
+}
+
+const Page = () => {
+    return (
+        <ConfigProvider>
+            <CartContextProvider>
+                <PageContent />
+            </CartContextProvider>
+        </ConfigProvider>
     );
 }
 

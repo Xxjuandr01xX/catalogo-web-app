@@ -7,4 +7,5 @@ export type Productos = {
     stock: number,
     min_stock: number,
     isActive: boolean,
+    imageurl: string,
 }
